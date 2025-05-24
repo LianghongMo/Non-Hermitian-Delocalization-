@@ -1,0 +1,202 @@
+clc;
+clear;
+
+
+avr = 100; 
+len = 100;
+Vv = linspace(-1, 1, len);  
+kK = linspace(-pi, pi, len);  
+tm = 10;
+L = 2^tm; % Size of the lattice
+
+
+V_data = [];
+En_data = [];
+inv_ipr_data = [];
+
+
+parpool('local', 14);
+
+
+parfor sample = 1:avr
+    
+    local_V_data = [];
+    local_En_data = [];
+    local_inv_ipr_data = [];
+
+    
+    Xj = randi([0, 1], 1, L / 2); 
+
+   
+    for pp = 1:len
+        V = Vv(pp);
+        H1 = zeros(L, L);
+
+        
+        for i = 1:L/2-1
+            H1(2*i, 2*i) = Xj(i) * 1i * V - (1 - Xj(i)) * 1i * V;
+            H1(2*i + 1, 2*i + 1) = (1 - Xj(i)) * 1i * V - Xj(i) * 1i * V;
+        end
+        H1(L, L) = Xj(L/2) * 1i * V - (1 - Xj(L/2)) * 1i * V;
+        H1(1, 1) = (1 - Xj(L/2)) * 1i * V - Xj(L/2) * 1i * V;
+
+        for i = 1:L-1
+            H1(i, i + 1) = 1;
+            H1(i + 1, i) = 1;
+        end
+
+        for jj = 1:len
+            K = kK(jj);
+            H1(1, L) = exp(1i * K);
+            H1(L, 1) = exp(-1i * K);
+
+            
+            [evt, eigv] = eig(H1);  
+            eigv = diag(eigv);    
+            index = find(abs(imag(eigv)) < 1e-14);  
+
+            if ~isempty(index)
+                for i = 1:length(index)
+                    En = real(eigv(index(i)));
+                    ipr = 0;
+                    
+                    for nn = 1:L
+                        ipr = ipr + abs(evt(nn, index(i)))^4;
+                    end
+
+                   
+                    local_V_data = [local_V_data; V];
+                    local_En_data = [local_En_data; En];
+                    local_inv_ipr_data = [local_inv_ipr_data; 1 / ipr];  % 存储 1/IPR
+                end
+            end
+        end
+    end
+
+    
+    V_data = [V_data; local_V_data];
+    En_data = [En_data; local_En_data];
+    inv_ipr_data = [inv_ipr_data; local_inv_ipr_data];
+end
+
+
+delete(gcp('nocreate'));
+
+
+figure;
+scatter(V_data, En_data, 20, inv_ipr_data, 'filled');  % 20 为点的大小
+colorbar;
+colormap(jet);
+xlabel('V', 'Interpreter', 'latex', 'FontSize', 12);
+ylabel('Energy (En)', 'Interpreter', 'latex', 'FontSize', 12);
+title('2D plot of 1/IPR with color gradient', 'Interpreter', 'latex', 'FontSize', 14);
+grid on;
+
+
+save('avr20len100tm10IPR.mat', 'V_data', 'En_data', 'inv_ipr_data');
+
+
+figure;
+scatter(V_data, En_data, 20, inv_ipr_data, 'filled');
+colorbar;
+colormap(jet);  
+xlabel('V');
+ylabel('Energy (En)');
+title('2D plot of 1/IPR with color gradient');
+
+
+saveas(gcf, '2D_plot_of_2_over_IPR_with_gradienttm10.png');
+
+
+
+figure;
+
+scatter(V_data, En_data, 20, inv_ipr_data, 'filled');  
+colorbar;
+colormap(jet);  
+xlabel('V');
+ylabel('Energy (En)');
+title('2D plot of 1/IPR with color gradient');
+
+hold on;
+
+
+len = 1000; 
+MM0 = ones(len, len);
+
+Enn = linspace(-2, 2, len);
+Vv = linspace(-1, 1, len);
+for kk = 1:len
+    for mm = 1:len
+        En = Enn(kk);
+        V= Vv(mm);
+        M0 = [En + 1i*V, -1; 1, 0];           
+        M1 = [En - 1i*V, -1; 1, 0];
+       
+        U0 = M0 * M1;      
+        U1 = M1 * M0;
+
+        x12 = trace(U0 * U1)^2;
+        x2 = trace(U0 * U1 * U1 * U0);
+
+        if (real(x2) <= 2) && (real(x2) >= -2) && (real(x12 - x2 - 2) <= 0)
+            MM0(kk, mm) = 0;
+        end
+    end
+end
+
+
+
+contour(Vv, Enn, MM0, [0.5 0.5], 'Color', [0.6, 0.7, 0.8], 'LineWidth', 3);  
+
+
+hold off;
+
+
+
+
+
+
+figure;
+colormap(parula); 
+
+
+scatter(V_data, En_data, 20, inv_ipr_data, 'filled'); 
+colorbar; 
+xlabel('V');
+ylabel('Energy (En)');
+title('2D plot of 1/IPR with color gradient');
+
+hold on;
+
+
+len = 1000; 
+MM0 = ones(len, len);
+Enn = linspace(-2, 2, len);  
+Vv = linspace(-1, 1, len); 
+
+
+for kk = 1:len
+    for mm = 1:len
+        En = Enn(kk);
+        V = Vv(mm);
+        M0 = [En + 1i*V, -1; 1, 0];         
+        M1 = [En - 1i*V, -1; 1, 0]; 
+       
+        U0 = M0 * M1;      
+        U1 = M1 * M0;
+
+        x12 = trace(U0 * U1)^2;
+        x2 = trace(U0 * U1 * U1 * U0);
+
+        if (real(x2) <= 2) && (real(x2) >= -2) && (real(x12 - x2 - 2) <= 0)
+            MM0(kk, mm) = 0;
+        end
+    end
+end
+
+
+contour(Vv, Enn, MM0, [0.5 0.5], 'Color', [0.6, 0.7, 0.8], 'LineWidth', 3);
+
+hold off;
+
